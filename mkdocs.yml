@@ -62,6 +62,7 @@ plugins:
             language: en
           nav:
             - Home: index.md
+            - Glossary: glossary/index.md
             - APIs and compute:
                 - Serverless REST API CRUD: rest-api-serverless-crud/index.md
                 - GraphQL BFF with AppSync: graphql-bff-appsync/index.md
@@ -114,9 +115,14 @@ markdown_extensions:
 
 extra_javascript:
   - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - assets/javascripts/glossary-tooltips.js
+
+extra_css:
+  - assets/stylesheets/glossary-tooltips.css
 
 nav:
   - Inicio: index.md
+  - Glosario: glossary/index.md
   - APIs y computo:
       - REST API Serverless CRUD: rest-api-serverless-crud/index.md
       - GraphQL BFF con AppSync: graphql-bff-appsync/index.md
