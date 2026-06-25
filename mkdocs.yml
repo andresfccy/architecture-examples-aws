@@ -1,0 +1,95 @@
+site_name: Architecture Examples AWS
+site_description: Patrones de arquitectura AWS para estudiar decisiones, tradeoffs, costos, seguridad y operacion.
+site_author: andresfccy
+site_url: https://andresfccy.github.io/architecture-examples-aws/
+repo_url: https://github.com/andresfccy/architecture-examples-aws
+repo_name: andresfccy/architecture-examples-aws
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: orange
+      toggle:
+        icon: material/weather-night
+        name: Cambiar a modo oscuro
+    - scheme: slate
+      primary: blue grey
+      accent: orange
+      toggle:
+        icon: material/weather-sunny
+        name: Cambiar a modo claro
+
+plugins:
+  - search:
+      lang: es
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+
+nav:
+  - Inicio: index.md
+  - APIs y computo:
+      - REST API Serverless CRUD: rest-api-serverless-crud/index.md
+      - GraphQL BFF con AppSync: graphql-bff-appsync/index.md
+      - gRPC interno en ECS: grpc-internal-ecs-services/index.md
+      - Web app en ECS Fargate: container-web-app-fargate-alb/index.md
+      - Realtime WebSocket y LLM Streaming: realtime-websocket-llm-streaming/index.md
+      - Edge static site con CloudFront y S3: edge-static-site-cloudfront-s3/index.md
+  - Mensajeria, eventos y workflows:
+      - Worker asincrono con SQS y Lambda: async-worker-sqs-lambda/index.md
+      - Pub/Sub con SNS y SQS: pubsub-notifications-sns-sqs/index.md
+      - Event-driven bus con EventBridge: event-driven-domain-bus-eventbridge/index.md
+      - Orquestacion con Step Functions: workflow-orchestration-step-functions/index.md
+  - Streaming:
+      - Realtime analytics con Kinesis: streaming-kinesis-realtime-analytics/index.md
+      - Event streaming con MSK Kafka: kafka-msk-event-streaming/index.md
+  - Datos, busqueda y cache:
+      - Aurora PostgreSQL SQL: relational-sql-aurora-postgresql/index.md
+      - DynamoDB single-table NoSQL: nosql-dynamodb-single-table/index.md
+      - ElastiCache cache-aside: redis-cache-aside-elasticache/index.md
+      - OpenSearch con CDC: search-opensearch-cdc/index.md
+      - Procesamiento de archivos S3: file-processing-s3-stepfunctions/index.md
+  - Analytics y data lake:
+      - Data lake con S3 Tables y Athena: data-lake-s3-tables-athena/index.md
+      - Batch ETL con Glue y Redshift: batch-etl-glue-redshift/index.md
+  - IA:
+      - RAG con Bedrock y vectores: ai-rag-bedrock-vectors/index.md
+  - Operacion, seguridad y costos:
+      - Observabilidad con CloudWatch, X-Ray y ADOT: observability-cloudwatch-xray-adot/index.md
+      - Seguridad con IAM, Secrets y OIDC: security-iam-secrets-oidc/index.md
+      - Guardrails de costo y budgets: cost-guardrails-budgets-anomaly/index.md
+      - Multi-account networking y endpoints: multi-account-networking-vpc-endpoints/index.md

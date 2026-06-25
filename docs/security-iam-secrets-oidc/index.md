@@ -1,0 +1,86 @@
+# Seguridad con IAM, Secrets y OIDC
+
+## Caso de uso
+
+Un equipo necesita desplegar desde CI/CD, conectar servicios a bases, manejar secretos y auditar acciones sin credenciales largas.
+
+```mermaid
+flowchart LR
+  GitHub[CI/CD OIDC token] --> IAM[IAM OIDC Provider]
+  IAM --> Role[Deploy Role temporary creds]
+  Role --> IaC[CDK or CloudFormation]
+  App[App runtime] --> Secret[Secrets Manager or SSM]
+  Secret --> KMS[KMS CMK optional]
+  AWS[API calls] --> Trail[CloudTrail]
+```
+
+## Decision principal
+
+Usa **OIDC + IAM roles temporales** para CI/CD y **Secrets Manager/SSM + KMS** para secretos. Aplica least privilege por workload.
+
+Evita access keys permanentes en pipelines. Evita secretos en variables de entorno planas, imagenes Docker, repositorios o prompts de agentes.
+
+## Preguntas clave
+
+- Quien asume el rol y bajo que condicion?
+- El permiso puede limitarse por repo, branch o workflow?
+- Que servicio necesita leer que secreto?
+- Hay rotacion automatica?
+- Que acciones deben quedar auditadas?
+- Existe riesgo de `iam:PassRole` amplio?
+
+## Por que estos servicios
+
+- **OIDC**: credenciales temporales para CI/CD.
+- **IAM roles**: permisos por identidad y workload.
+- **Secrets Manager**: secretos con rotacion y auditoria.
+- **SSM Parameter Store**: configuracion y secretos simples.
+- **KMS**: control de cifrado.
+- **CloudTrail**: auditoria.
+
+## Pros
+
+- Reduce riesgo de credenciales filtradas.
+- Permisos expresivos y auditables.
+- Rotacion de secretos.
+- Integracion nativa con Lambda/ECS/RDS.
+- Mejor postura para compliance.
+
+## Contras
+
+- IAM tiene bordes complejos.
+- Politicas demasiado amplias crean escalacion.
+- KMS key policies pueden bloquear accesos legitimos.
+- Rotacion requiere pruebas.
+- Debugging de AccessDenied exige metodo.
+
+## Alertas y controles
+
+Minimo:
+
+- CloudTrail habilitado.
+- GuardDuty y Security Hub donde aplique.
+- IAM Access Analyzer.
+- Alarmas por cambios IAM sensibles.
+- Deteccion de secret leaks en CI.
+
+Guardrails:
+
+- `iam:PassRole` acotado a roles especificos.
+- Trust policies con condiciones OIDC.
+- Un rol por Lambda o task cuando sea posible.
+- No usar `*FullAccess` en produccion.
+- No leer secretos directamente al contexto del agente.
+
+## Evolucion natural
+
+- Si hay muchos equipos: IAM Identity Center y permission sets.
+- Si hay multi-account: SCPs y cuentas separadas.
+- Si hay secretos por tenant: naming, tags y policies por tenant.
+- Si hay compliance: customer managed KMS keys y rotation.
+- Si AccessDenied es frecuente: policy simulator y Access Analyzer.
+
+## Ejercicio de practica
+
+Disena un rol de deploy que solo pueda ser asumido por GitHub Actions desde branch `main`. Define permisos minimos para desplegar una stack CDK.
+
