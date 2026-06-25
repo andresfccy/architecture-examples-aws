@@ -76,6 +76,40 @@ Reglas practicas:
 - Si los workers son CPU-heavy: ECS/Fargate.
 - Si el backlog crece siempre: revisar capacidad downstream y batch size.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Generacion asincrona de facturas PDF
+
+**Contexto:** Una plataforma de pagos debe generar facturas PDF despues del cobro, notificar al cliente y reintentar si el proveedor fiscal falla.
+
+**Preguntas y respuestas:**
+
+- **El usuario debe esperar el PDF?** No. La API confirma el pago y encola `InvoiceRequested`; el PDF llega por email o aparece en el panel.
+- **Que pasa si el proveedor fiscal falla?** SQS maneja retries, DLQ conserva poison messages y la operacion es idempotente por `paymentId`.
+- **Como se protege la base?** Reserved concurrency limita Lambda y el Visibility timeout queda al menos 6x sobre el timeout del worker.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** API Gateway o ECS publica en SQS Standard, Lambda worker genera PDF, S3 guarda documentos y DynamoDB registra estado.
+- **Etapa media:** DLQ con redrive controlado, SNS para notificaciones, alarmas por DLQ depth y Duration p99, y Step Functions para flujos con aprobacion manual.
+- **Gran escala:** Particionar por tenant o region, workers ECS si la libreria PDF es pesada, S3 lifecycle para retencion y data lake para auditoria fiscal.
+
+**Migracion/evolucion:** Si hoy el PDF se genera en la request, extraerlo primero detras de una cola manteniendo el endpoint actual y devolver un estado `PROCESSING`.
+
+```mermaid
+flowchart LR
+  Api[Payment API] --> Queue[SQS invoice queue]
+  Queue --> Fn[Lambda PDF worker]
+  Fn --> Fiscal[Tax provider]
+  Fn --> S3[S3 invoice PDFs]
+  Fn --> Ddb[DynamoDB status]
+  Fn --> Topic[SNS email event]
+  Queue --> Dlq[DLQ]
+  Dlq --> Redrive[Controlled redrive]
+```
+
+**Patrones relacionados:** [pubsub-notifications-sns-sqs](../pubsub-notifications-sns-sqs/index.md), [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md).
+
 ## Ejercicio de practica
 
 Disena un flujo de generacion de facturas PDF. Define cola, DLQ, idempotency key, alarmas y estrategia de redrive.

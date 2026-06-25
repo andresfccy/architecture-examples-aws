@@ -80,6 +80,42 @@ Guardrails:
 - If NAT dominates cost: review endpoints and external traffic.
 - If security grows: Network Firewall, Config, and SCPs.
 
+## Applied Examples
+
+### Example 1: Regulated company with private workloads and lower NAT spend
+
+**Context:** A healthcare company separates accounts by environment and domain. Private workloads call S3, DynamoDB, ECR, Secrets Manager, and CloudWatch without needing general internet access.
+
+**Questions and answers:**
+
+- **What is centralized and what is not?** Shared networking, DNS, and common endpoints can be centralized; sensitive data and app roles stay in workload accounts.
+- **Which endpoints reduce NAT?** Gateway endpoints for S3/DynamoDB; interface endpoints for ECR, logs, Secrets Manager, SSM, KMS, and STS.
+- **How is cross-account access controlled?** Organizations, SCP, RAM, endpoint policies, security groups, and PrivateLink for internal services.
+
+**Architecture by stage:**
+
+- **Initial project:** Organizations with dev/staging/prod accounts, multi-AZ VPC, public/private subnets, NAT only where justified, and basic endpoints.
+- **Middle stage:** Networking account, Transit Gateway or peering depending on topology, Route 53 Resolver, centralized logs, and endpoints by service.
+- **Large-scale projection:** Landing zone, OUs by domain, PrivateLink for internal APIs, controlled egress, central inspection, and NAT cost monitoring by account.
+
+**Migration/evolution:** If everything lives in one account, separate prod first, move logs/security to central accounts, then extract domains with a VPC endpoint strategy.
+
+```mermaid
+flowchart LR
+  Org[AWS Organizations] --> Net[Networking account]
+  Org --> Workload[Workload accounts]
+  Net --> Tgw[Transit Gateway]
+  Workload --> Vpc[Private VPCs]
+  Vpc --> S3Ep[S3 gateway endpoint]
+  Vpc --> DdbEp[DynamoDB gateway endpoint]
+  Vpc --> Iface[Interface endpoints]
+  Iface --> Services[ECR Logs Secrets KMS STS]
+  Vpc --> Pl[PrivateLink services]
+  Net --> Logs[Central logs]
+```
+
+**Related patterns:** [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md), [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Practice exercise
 
 Design a private VPC for ECS that needs ECR, S3, CloudWatch Logs, and Secrets Manager. Decide NAT vs endpoints and calculate the tradeoff.

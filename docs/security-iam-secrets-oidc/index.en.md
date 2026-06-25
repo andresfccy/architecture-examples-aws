@@ -80,6 +80,41 @@ Guardrails:
 - If compliance grows: customer managed KMS keys and rotation.
 - If AccessDenied is frequent: policy simulator and Access Analyzer.
 
+## Applied Examples
+
+### Example 1: SaaS platform with GitHub Actions deploys and no access keys
+
+**Context:** A team deploys CDK from GitHub Actions, uses third-party provider secrets, and needs dev, staging, and prod isolation.
+
+**Questions and answers:**
+
+- **How are long-lived credentials avoided?** OIDC lets CI/CD assume temporary roles through STS; no access keys are stored in GitHub.
+- **How is `iam:PassRole` limited?** Specific resource ARN, `iam:PassedToService` condition, and roles per pipeline/environment.
+- **Where do secrets and keys live?** Secrets Manager with a customer managed KMS key, rotation where applicable, and access through task role or Lambda role.
+
+**Architecture by stage:**
+
+- **Initial project:** Separate dev/staging/prod accounts, OIDC provider, deploy role by environment, Secrets Manager, and multi-region CloudTrail.
+- **Middle stage:** Permission boundaries, Access Analyzer, basic SCPs, secret rotation, KMS by domain, and GuardDuty/Security Hub detection.
+- **Large-scale projection:** Multi-account model by workload, audited break-glass, ABAC by tags, centralized logs, and automated least privilege reviews.
+
+**Migration/evolution:** If CI has access keys today, create OIDC in parallel, migrate one non-critical pipeline, revoke keys, and then tighten trust policies.
+
+```mermaid
+flowchart LR
+  GitHub[GitHub Actions] --> Oidc[OIDC provider]
+  Oidc --> Role[STS assume deploy role]
+  Role --> Cdk[CDK deploy]
+  Cdk --> App[Lambda or ECS roles]
+  App --> Secret[Secrets Manager]
+  Secret --> Kms[KMS CMK]
+  Role --> Trail[CloudTrail]
+  Org[AWS Organizations SCP] --> Role
+  Analyzer[Access Analyzer] --> Role
+```
+
+**Related patterns:** [multi-account-networking-vpc-endpoints](../multi-account-networking-vpc-endpoints/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Practice exercise
 
 Design a deploy role that can only be assumed by GitHub Actions from branch `main`. Define minimum permissions to deploy a CDK stack.

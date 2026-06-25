@@ -78,6 +78,41 @@ Practicas:
 - Si hay muchos dominios: data products por namespace.
 - Si queries son caras: compactacion, particiones y columnas.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Lakehouse de ventas omnicanal
+
+**Contexto:** Una marca combina ventas web, tiendas fisicas, devoluciones y campanas para reportes diarios y exploracion ad hoc.
+
+**Preguntas y respuestas:**
+
+- **Por que S3 Tables e Iceberg?** Se necesitan tablas con schema evolution, particiones y mantenimiento administrado sobre S3 sin operar clusters.
+- **Que datos son bronze, silver y gold?** Bronze recibe crudos, silver normaliza ventas/devoluciones, gold agrega KPIs por canal y dia.
+- **Como controlar costo de Athena?** Parquet, particiones por fecha/canal, compaction, workgroups con limites y presupuestos.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** S3 Tables, Glue Data Catalog, Athena workgroup, jobs Glue para cargar CSV/Parquet y Lake Formation/IAM para permisos.
+- **Etapa media:** Ingest incremental desde Aurora/DynamoDB, validaciones de calidad, QuickSight/Redshift Spectrum y catalogo por dominio.
+- **Gran escala:** S3 Tables por dominio, cuentas productoras/consumidoras, Flink para streaming a Iceberg y gobierno con tags de datos sensibles.
+
+**Migracion/evolucion:** Si hoy hay reportes sobre OLTP, exportar tablas a S3, recrear reportes en Athena y retirar consultas pesadas de la base transaccional.
+
+```mermaid
+flowchart LR
+  Web[Web sales] --> Bronze[S3 Tables bronze]
+  Store[Store POS] --> Bronze
+  Returns[Returns] --> Bronze
+  Bronze --> Glue[Glue ETL]
+  Glue --> Silver[S3 Tables silver]
+  Silver --> Gold[S3 Tables gold]
+  Gold --> Athena[Athena workgroup]
+  Gold --> BI[BI dashboards]
+  Catalog[Glue Data Catalog] --> Athena
+```
+
+**Patrones relacionados:** [batch-etl-glue-redshift](../batch-etl-glue-redshift/index.md), [streaming-kinesis-realtime-analytics](../streaming-kinesis-realtime-analytics/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Ejercicio de practica
 
 Disena tabla `sales_orders` en Iceberg. Define schema, particion, workgroup Athena, limite de bytes y validaciones de calidad.

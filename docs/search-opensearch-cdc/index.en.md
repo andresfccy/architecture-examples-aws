@@ -71,6 +71,41 @@ Minimum:
 - If filters are simple: a DynamoDB GSI may be enough.
 - If analytics dominates: send data to S3 Tables.
 
+## Applied Examples
+
+### Example 1: Real estate property search
+
+**Context:** A real estate portal needs text search, city/price filters, facets, and relevance sorting while transactional inventory changes all day.
+
+**Questions and answers:**
+
+- **Why not query DynamoDB or SQL directly?** Full-text search, facets, and scoring belong in OpenSearch; the transactional database remains the operational source of truth.
+- **How do changes reach the index?** CDC from DynamoDB Streams or DMS for Aurora, with Lambda/Firehose/OpenSearch Ingestion transforming documents.
+- **How is eventual consistency handled?** Show an `indexing` state, tolerate measured delay, and alarm on lag or DLQ failures.
+
+**Architecture by stage:**
+
+- **Initial project:** CRUD stores properties in DynamoDB/Aurora; a process indexes changes into OpenSearch; the search API queries the index.
+- **Middle stage:** DLQ for failed documents, reindex from S3 snapshots, domain synonyms, and ingest latency dashboards.
+- **Large-scale projection:** Separate clusters or collections by domain, use OpenSearch Serverless or dedicated domains depending on QPS, add hybrid vector search, and keep historical data in the lake.
+
+**Migration/evolution:** If SQL `LIKE` is used today, duplicate changes to OpenSearch, compare results, redirect search first, and keep SQL as the source of truth.
+
+```mermaid
+flowchart LR
+  Admin[Inventory admin] --> Db[DynamoDB or Aurora]
+  Db --> Cdc[Streams or DMS CDC]
+  Cdc --> Transform[Lambda transform]
+  Transform --> Search[OpenSearch index]
+  SearchApi[Search API] --> Search
+  Transform --> Dlq[DLQ failed docs]
+  Db --> Snapshot[S3 snapshots]
+  Snapshot --> Reindex[Reindex job]
+  Reindex --> Search
+```
+
+**Related patterns:** [nosql-dynamodb-single-table](../nosql-dynamodb-single-table/index.md), [relational-sql-aurora-postgresql](../relational-sql-aurora-postgresql/index.md), [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md).
+
 ## Practice exercise
 
 Design product search. Define source of truth, index mapping, CDC pipeline, DLQ, and full reindex process.

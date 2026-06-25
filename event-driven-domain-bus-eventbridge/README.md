@@ -79,6 +79,41 @@ Guardrails:
 - Si eventos cruzan cuentas: definir owner del schema.
 - Si el costo sube por ruido: revisar patrones y eventos duplicados.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Plataforma de seguros con eventos de poliza
+
+**Contexto:** Ventas, cobranzas, siniestros y analitica necesitan reaccionar a cambios de poliza sin depender de llamadas directas entre equipos.
+
+**Preguntas y respuestas:**
+
+- **El evento representa un hecho de negocio o una orden?** `PolicyIssued` y `PaymentFailed` son hechos; comandos como recalcular riesgo van por SQS o Step Functions.
+- **Por que EventBridge y no SNS?** Se necesita routing por contenido, buses por dominio, integraciones SaaS y archive/replay selectivo.
+- **Como se evita un loop?** Event patterns estrictos, `source` por dominio, una regla por target y DLQ por target.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** Bus `insurance-domain`, reglas para cobranzas y CRM, Lambda targets y schema registry documentado.
+- **Etapa media:** EventBridge Pipes desde DynamoDB Streams, Step Functions para siniestros, cross-account bus para data platform y alarmas por failed invocations.
+- **Gran escala:** Buses por dominio, archive/replay para reconstruir proyecciones, contratos versionados y cuentas separadas para productores y consumidores criticos.
+
+**Migracion/evolucion:** Si hoy los servicios se llaman en cadena, publicar eventos despues de confirmar la transaccion y mover consumidores a reglas EventBridge sin romper el flujo sincrono existente.
+
+```mermaid
+flowchart LR
+  Policy[Policy service] --> Bus[EventBridge domain bus]
+  Billing[Billing service] --> Bus
+  Bus --> Rule1[Rule payment failed]
+  Bus --> Rule2[Rule policy issued]
+  Rule1 --> ClaimsFlow[Step Functions claims]
+  Rule2 --> Crm[Lambda CRM]
+  Bus --> DataBus[Cross-account data bus]
+  DataBus --> Lake[S3 Tables]
+  Rule1 --> Dlq[Target DLQ]
+```
+
+**Patrones relacionados:** [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [nosql-dynamodb-single-table](../nosql-dynamodb-single-table/index.md), [data-lake-s3-tables-athena](../data-lake-s3-tables-athena/index.md).
+
 ## Ejercicio de practica
 
 Define un bus `commerce`. Publica `OrderCreated` y crea reglas para fulfillment, analytics y email. Agrega DLQ y schema versionado.

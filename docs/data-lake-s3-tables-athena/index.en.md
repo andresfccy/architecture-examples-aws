@@ -78,6 +78,41 @@ Practices:
 - If there are many domains: data products by namespace.
 - If queries are expensive: compaction, partitions, and columns.
 
+## Applied Examples
+
+### Example 1: Omnichannel sales Lakehouse
+
+**Context:** A brand combines web sales, physical stores, returns, and campaigns for daily reporting and ad hoc exploration.
+
+**Questions and answers:**
+
+- **Why S3 Tables and Iceberg?** The workload needs tables with schema evolution, partitions, and managed maintenance on S3 without operating clusters.
+- **What are bronze, silver, and gold?** Bronze receives raw data, silver normalizes sales/returns, and gold aggregates KPIs by channel and day.
+- **How is Athena cost controlled?** Parquet, partitions by date/channel, compaction, workgroups with limits, and budgets.
+
+**Architecture by stage:**
+
+- **Initial project:** S3 Tables, Glue Data Catalog, Athena workgroup, Glue jobs to load CSV/Parquet, and Lake Formation/IAM permissions.
+- **Middle stage:** Incremental ingest from Aurora/DynamoDB, quality checks, QuickSight/Redshift Spectrum, and catalogs by domain.
+- **Large-scale projection:** S3 Tables by domain, producer/consumer accounts, Flink streaming to Iceberg, and governance with sensitive-data tags.
+
+**Migration/evolution:** If reports run on OLTP today, export tables to S3, recreate reports in Athena, and remove heavy queries from the transactional database.
+
+```mermaid
+flowchart LR
+  Web[Web sales] --> Bronze[S3 Tables bronze]
+  Store[Store POS] --> Bronze
+  Returns[Returns] --> Bronze
+  Bronze --> Glue[Glue ETL]
+  Glue --> Silver[S3 Tables silver]
+  Silver --> Gold[S3 Tables gold]
+  Gold --> Athena[Athena workgroup]
+  Gold --> BI[BI dashboards]
+  Catalog[Glue Data Catalog] --> Athena
+```
+
+**Related patterns:** [batch-etl-glue-redshift](../batch-etl-glue-redshift/index.md), [streaming-kinesis-realtime-analytics](../streaming-kinesis-realtime-analytics/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Practice exercise
 
 Design the `sales_orders` table in Iceberg. Define schema, partitioning, Athena workgroup, byte limit, and quality validations.

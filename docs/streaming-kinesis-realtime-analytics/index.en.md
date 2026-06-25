@@ -71,6 +71,41 @@ Minimum:
 - If hot partitions appear: redesign partition key.
 - If historical analytics dominates: model S3 Tables/Iceberg.
 
+## Applied Examples
+
+### Example 1: Cold-chain IoT telemetry
+
+**Context:** Refrigerated trucks send temperature, location, and battery data every few seconds. Operations needs immediate alerts and historical analytics.
+
+**Questions and answers:**
+
+- **Is this messaging or streaming?** Streaming. It needs retention, replay, ordering by device, and multiple independent consumers.
+- **When should Flink be used?** When the workload needs windows, complex event detection, or joins with route-specific thresholds; Firehose is enough for simple S3 delivery.
+- **How is backpressure handled?** Shards/on-demand capacity, partitioning by `vehicleId`, IteratorAge alarms, and DLQ/on-failure destinations for Lambda consumers.
+
+**Architecture by stage:**
+
+- **Initial project:** Devices publish through API/IoT Core to Kinesis Data Streams; Lambda detects thresholds and Firehose delivers Parquet to S3.
+- **Middle stage:** Managed Service for Apache Flink calculates windows, DynamoDB stores operational state, SNS alerts incidents, and Athena queries history.
+- **Large-scale projection:** Multi-region ingestion, enhanced fan-out for critical consumers, S3 Tables/Iceberg for the lakehouse, and OpenSearch for operational search.
+
+**Migration/evolution:** If readings are inserted directly into SQL today, put Kinesis in front, replicate to the current database as a consumer, and move analytics to S3 without stopping producers.
+
+```mermaid
+flowchart LR
+  Devices[IoT devices] --> Stream[Kinesis Data Streams]
+  Stream --> Lambda[Lambda threshold alerts]
+  Stream --> Firehose[Firehose]
+  Firehose --> S3[S3 Parquet]
+  Stream --> Flink[Flink windows]
+  Flink --> Ddb[DynamoDB live state]
+  Flink --> Topic[SNS incidents]
+  S3 --> Athena[Athena]
+  S3 --> Tables[S3 Tables]
+```
+
+**Related patterns:** [data-lake-s3-tables-athena](../data-lake-s3-tables-athena/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md), [kafka-msk-event-streaming](../kafka-msk-event-streaming/index.md).
+
 ## Practice exercise
 
 Design ingestion for `page_view` events. Define partition key, retention, realtime consumer, S3 delivery, and lag alarm.

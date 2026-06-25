@@ -77,6 +77,41 @@ Cost decisions:
 - If multi-region is needed: evaluate global database and failover strategy.
 - If some entities are key-value: move only those to DynamoDB.
 
+## Applied Examples
+
+### Example 1: Lending fintech with transactional rules
+
+**Context:** A lending fintech must approve loans, record installments, reconcile payments, and serve operational reports with strong consistency and SQL queries.
+
+**Questions and answers:**
+
+- **Why not DynamoDB first?** There are joins, constraints, transactions, and operational reports; Aurora PostgreSQL reduces early modeling risk.
+- **How is Aurora protected from serverless spikes?** RDS Proxy, Lambda concurrency limits, pooling in ECS, and read-only queries routed to replicas.
+- **When should Aurora Serverless v2 be chosen?** When load is variable and ACU scaling is useful; provisioned capacity fits stable load and commitments.
+
+**Architecture by stage:**
+
+- **Initial project:** Aurora PostgreSQL Multi-AZ, app on ECS or Lambda with RDS Proxy, Secrets Manager, KMS, and versioned migrations.
+- **Middle stage:** Read replicas, settlement jobs in Step Functions, export to S3 for BI, and alarms on connections, CPU, storage, and I/O.
+- **Large-scale projection:** Separate OLTP from OLAP, partition large tables, use CDC to OpenSearch/EventBridge, and evaluate Global Database when multi-region reads justify it.
+
+**Migration/evolution:** If migrating from PostgreSQL on a VM, use DMS or logical replication, validate critical queries, cut writes in a controlled window, and keep historical export to S3.
+
+```mermaid
+flowchart LR
+  App[ECS or Lambda app] --> Proxy[RDS Proxy]
+  Proxy --> Aurora[Aurora PostgreSQL]
+  Aurora --> Replica[Read replica]
+  Aurora --> Export[RDS export to S3]
+  Export --> Lake[S3 Tables BI]
+  Aurora --> Cdc[CDC stream]
+  Cdc --> Search[OpenSearch]
+  Cdc --> Bus[EventBridge]
+  Secrets[Secrets Manager] --> App
+```
+
+**Related patterns:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [batch-etl-glue-redshift](../batch-etl-glue-redshift/index.md), [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md).
+
 ## Practice exercise
 
 Design a reservation database with transactions. Decide indexes, RDS Proxy, secrets, backups, alarms, and which data you would export to the lake.

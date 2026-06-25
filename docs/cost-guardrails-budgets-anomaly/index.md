@@ -83,6 +83,41 @@ No confies en revisar la factura manualmente. El costo tambien es una senal de s
 - Si DynamoDB on-demand se estabiliza: evaluar provisioned.
 - Si Fargate corre continuo: Savings Plans o right-sizing.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Startup con ambientes efimeros por pull request
+
+**Contexto:** Cada pull request levanta stacks temporales para pruebas. El equipo quiere velocidad sin descubrir costos tarde.
+
+**Preguntas y respuestas:**
+
+- **Un Budget corta el gasto?** No. Alerta; el control tecnico viene de quotas, TTL, automatizacion de limpieza y SCPs.
+- **Que etiquetas son obligatorias?** `owner`, `env`, `project`, `ttl`, `cost-center` y `created-by` para atribuir gasto y borrar recursos huerfanos.
+- **Que senales disparan accion?** Forecast sobre presupuesto, anomaly detection, NAT/DataTransfer inusual, logs sin retencion y recursos sin tag.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** Budgets por cuenta/ambiente, Cost Anomaly Detection, tags obligatorios en IaC y alarmas de gasto diario.
+- **Etapa media:** Lambda Scheduler borra stacks expirados, AWS Config detecta tags/log retention, Service Quotas limita servicios caros y dashboards Cost Explorer.
+- **Gran escala:** CUR 2.0 en S3 + Athena, chargeback por equipo, SCPs por OU, Savings Plans evaluados con datos y aprobacion financiera.
+
+**Migracion/evolucion:** Si no hay tagging, empezar por nuevos stacks, luego backfill de recursos vivos y finalmente bloquear despliegues sin tags en pipeline.
+
+```mermaid
+flowchart LR
+  Cdk[Ephemeral CDK stacks] --> Tags[Mandatory tags]
+  Tags --> Cost[Cost Explorer]
+  Cost --> Budget[Budgets alerts]
+  Cost --> Anomaly[Cost Anomaly Detection]
+  Tags --> Cleanup[TTL cleanup Lambda]
+  Config[AWS Config rules] --> Cleanup
+  Cur[CUR 2.0] --> S3[S3 billing lake]
+  S3 --> Athena[Athena chargeback]
+  Org[SCP and quotas] --> Cdk
+```
+
+**Patrones relacionados:** [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md), [multi-account-networking-vpc-endpoints](../multi-account-networking-vpc-endpoints/index.md).
+
 ## Ejercicio de practica
 
 Define guardrails para una API publica: API throttling, WAF rate limit, Lambda reserved concurrency, budget, anomaly alert y dashboard de costo por request.

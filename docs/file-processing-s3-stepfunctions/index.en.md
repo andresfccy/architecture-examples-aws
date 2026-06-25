@@ -80,6 +80,41 @@ Guardrails:
 - If metadata grows: DynamoDB + OpenSearch for search.
 - If data is tabular: convert to S3 Tables/Iceberg.
 
+## Applied Examples
+
+### Example 1: Credit document processing
+
+**Context:** Customers upload PDFs, images, and forms. The system must validate format, extract data, check rules, and notify an analyst.
+
+**Questions and answers:**
+
+- **Why not process directly from an S3 trigger?** The flow has steps, branches, retries, and large files; Step Functions makes state visible and S3 stores payloads.
+- **How is recursion avoided?** Separate buckets or prefixes for `incoming`, `processed`, and `failed`; output never writes to the same prefix that triggers input.
+- **Which errors are retried?** OCR/external API failures with backoff; corrupt files go to a rejection branch and operational DLQ.
+
+**Architecture by stage:**
+
+- **Initial project:** S3 receives upload through Presigned URL, EventBridge triggers Step Functions, Lambda validates, extracts metadata, and updates DynamoDB.
+- **Middle stage:** Textract/Bedrock for extraction, SQS buffer for spikes, antivirus in Lambda/ECS, and SNS notifications to analysts.
+- **Large-scale projection:** Distributed Map for batches, queues by document type, S3 lifecycle/retention, and a Lakehouse for training and audit.
+
+**Migration/evolution:** If a cron job processes shared folders today, replicate files to S3, keep state in DynamoDB, and move validations into the workflow stage by stage.
+
+```mermaid
+flowchart LR
+  Client[Client upload] --> In[S3 incoming]
+  In --> Event[EventBridge object event]
+  Event --> Flow[Step Functions]
+  Flow --> Validate[Lambda validate]
+  Flow --> Extract[Textract or Bedrock]
+  Flow --> Review[SNS analyst review]
+  Flow --> State[DynamoDB status]
+  Flow --> Out[S3 processed]
+  Flow --> Failed[S3 failed]
+```
+
+**Related patterns:** [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md), [data-lake-s3-tables-athena](../data-lake-s3-tables-athena/index.md).
+
 ## Practice exercise
 
 Design a sales CSV pipeline. Validate schema, transform to Parquet, store metadata, and define error routing.

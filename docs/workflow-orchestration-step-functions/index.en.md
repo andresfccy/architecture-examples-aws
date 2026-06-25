@@ -78,6 +78,41 @@ Guardrails:
 - If transition cost grows: group steps or use Express where appropriate.
 - If subflows repeat: create child workflows.
 
+## Applied Examples
+
+### Example 1: Vendor onboarding with approvals
+
+**Context:** A marketplace must register vendors, validate documents, check risk lists, request human approval, and enable payouts.
+
+**Questions and answers:**
+
+- **Is this a long task with visible state?** Yes. Step Functions Standard supports human waits, retries, compensations, and per-step auditability.
+- **Which steps do not need Lambda?** Simple validations, SDK calls to DynamoDB/SNS/EventBridge, and JSONata transforms can avoid glue functions.
+- **Where do large payloads go?** Documents and bulky results go to S3; the state machine moves only references.
+
+**Architecture by stage:**
+
+- **Initial project:** API creates a request, Step Functions validates data, Lambda calls external providers, DynamoDB stores status, and SNS sends the decision.
+- **Middle stage:** `.waitForTaskToken` for human approval, retries with jitter, Catch by error type, EventBridge for failures, and DLQ-backed integrations.
+- **Large-scale projection:** Distributed Map for large batches, child workflows by country, a separate compliance account, and a Lakehouse for audit.
+
+**Migration/evolution:** If a giant Lambda holds manual state today, extract error branches and waits into Step Functions first, leaving business logic in small functions.
+
+```mermaid
+flowchart LR
+  Api[Vendor API] --> Sfn[Step Functions Standard]
+  Sfn --> Validate[Validate data]
+  Sfn --> Risk[Lambda risk checks]
+  Sfn --> Human[Human approval token]
+  Sfn --> Pay[Enable payments]
+  Sfn --> Ddb[DynamoDB status]
+  Sfn --> Topic[SNS decision]
+  Sfn --> Bus[EventBridge failures]
+  Bus --> Audit[S3 audit lake]
+```
+
+**Related patterns:** [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md), [event-driven-domain-bus-eventbridge](../event-driven-domain-bus-eventbridge/index.md), [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md).
+
 ## Practice exercise
 
 Model an order saga with payment compensation. Define states, recoverable errors, final errors, and success metrics.

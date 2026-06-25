@@ -76,6 +76,41 @@ Guardrails:
 - If LLM cost is high: semantic cache.
 - If you need vector search: node-based Valkey 8.2+ or OpenSearch.
 
+## Applied Examples
+
+### Example 1: Fitness app leaderboard and profile cache
+
+**Context:** A fitness app shows live rankings, user profiles, and personalized plans. The primary database should not absorb every repeated read.
+
+**Questions and answers:**
+
+- **What is cached?** Public profile, challenge ranking, and expensive query results. Canonical data remains in DynamoDB or Aurora.
+- **Which TTL should be used?** Profiles for minutes, ranking for seconds, feature flags longer; add jitter to avoid cache stampede.
+- **Serverless or node-based?** Serverless for common cache-aside; node-based Valkey when vector search or fine topology control is required.
+
+**Architecture by stage:**
+
+- **Initial project:** API on Lambda/ECS queries ElastiCache with lazy connection, falls back to DB on miss, and writes with TTL.
+- **Middle stage:** Event-driven invalidation, recompute locks, cache hit rate, CPU, memory, and connection metrics.
+- **Large-scale projection:** Sharding by tenant/challenge, Global Datastore if a secondary region applies, semantic cache for AI responses, and snapshots for important derived data.
+
+**Migration/evolution:** Measure slow endpoints first, introduce cache-aside on one high-volume read, then move sessions/rate limiting and finally leaderboard patterns.
+
+```mermaid
+flowchart LR
+  App[API app] --> Cache[ElastiCache Valkey]
+  Cache -->|miss| Db[DynamoDB or Aurora]
+  Db --> Cache
+  App --> Rank[Sorted sets leaderboard]
+  Events[EventBridge changes] --> Invalidate[Lambda invalidation]
+  Invalidate --> Cache
+  Cache --> Metrics[CloudWatch hit rate]
+  Ai[Bedrock app] --> Semantic[Semantic cache]
+  Semantic --> Cache
+```
+
+**Related patterns:** [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md), [nosql-dynamodb-single-table](../nosql-dynamodb-single-table/index.md), [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md).
+
 ## Practice exercise
 
 Add cache-aside to `GET /products/{id}`. Define key, TTL, invalidation after product update, and a low-hit-rate alarm.

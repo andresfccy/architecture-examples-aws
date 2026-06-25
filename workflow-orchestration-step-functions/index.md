@@ -78,6 +78,41 @@ Guardrails:
 - Si el costo de transitions sube: agrupar pasos o usar Express donde aplique.
 - Si se repiten subflujos: crear workflows hijos.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Onboarding de proveedores con aprobaciones
+
+**Contexto:** Un marketplace debe registrar proveedores, validar documentos, consultar listas de riesgo, pedir aprobacion humana y activar pagos.
+
+**Preguntas y respuestas:**
+
+- **Es una tarea larga con estados visibles?** Si. Step Functions Standard permite espera humana, retries, compensaciones y auditoria de cada paso.
+- **Que pasos no necesitan Lambda?** Validaciones simples, llamadas SDK a DynamoDB/SNS/EventBridge y transformaciones JSONata pueden evitar funciones pegamento.
+- **Donde guardar payloads grandes?** Documentos y resultados voluminosos van a S3; la maquina de estados solo mueve referencias.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** API crea solicitud, Step Functions valida datos, Lambda consulta proveedores externos, DynamoDB guarda estado y SNS notifica decision.
+- **Etapa media:** `.waitForTaskToken` para aprobacion humana, retries con jitter, Catch por tipo de error, EventBridge para fallos y DLQ de integraciones.
+- **Gran escala:** Distributed Map para lotes masivos, flujos hijos por pais, cuenta separada de compliance y Lakehouse para auditoria.
+
+**Migracion/evolucion:** Si existe un Lambda gigante con estado manual, extraer primero las ramas de error y los waits a Step Functions, dejando la logica de negocio en funciones pequenas.
+
+```mermaid
+flowchart LR
+  Api[Vendor API] --> Sfn[Step Functions Standard]
+  Sfn --> Validate[Validate data]
+  Sfn --> Risk[Lambda risk checks]
+  Sfn --> Human[Human approval token]
+  Sfn --> Pay[Enable payments]
+  Sfn --> Ddb[DynamoDB status]
+  Sfn --> Topic[SNS decision]
+  Sfn --> Bus[EventBridge failures]
+  Bus --> Audit[S3 audit lake]
+```
+
+**Patrones relacionados:** [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md), [event-driven-domain-bus-eventbridge](../event-driven-domain-bus-eventbridge/index.md), [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md).
+
 ## Ejercicio de practica
 
 Modela una saga de pedido con compensacion de pago. Define estados, errores recuperables, errores finales y metricas de exito.

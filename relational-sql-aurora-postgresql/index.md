@@ -77,6 +77,41 @@ Cost decisions:
 - Si necesita multi-region: evaluar global database y estrategia de failover.
 - Si algunas entidades son key-value: mover solo esas a DynamoDB.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Fintech de prestamos con reglas transaccionales
+
+**Contexto:** Una fintech debe aprobar prestamos, registrar cuotas, conciliaciones y reportes operativos con consistencia fuerte y consultas SQL.
+
+**Preguntas y respuestas:**
+
+- **Por que no DynamoDB primero?** Hay joins, constraints, transacciones y reportes operacionales; Aurora PostgreSQL reduce riesgo de modelado temprano.
+- **Como se protege Aurora de picos serverless?** RDS Proxy, limites de concurrencia en Lambda, pooling en ECS y consultas read-only hacia replicas.
+- **Cuando elegir Aurora Serverless v2?** Cuando la carga es variable y se quiere escalar ACUs sin administrar instancias fijas; provisionado aplica para carga estable y compromisos.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** Aurora PostgreSQL Multi-AZ, app en ECS o Lambda con RDS Proxy, Secrets Manager, KMS y migraciones versionadas.
+- **Etapa media:** Read replicas, jobs de conciliacion en Step Functions, export a S3 para BI y alarmas por conexiones, CPU, storage e I/O.
+- **Gran escala:** Separar OLTP de OLAP, particionar tablas grandes, usar CDC hacia OpenSearch/EventBridge y evaluar Global Database si la lectura multi-region lo justifica.
+
+**Migracion/evolucion:** Si viene de PostgreSQL en VM, usar DMS o replica logica, validar queries criticas, cortar escrituras en ventana controlada y dejar export historico a S3.
+
+```mermaid
+flowchart LR
+  App[ECS or Lambda app] --> Proxy[RDS Proxy]
+  Proxy --> Aurora[Aurora PostgreSQL]
+  Aurora --> Replica[Read replica]
+  Aurora --> Export[RDS export to S3]
+  Export --> Lake[S3 Tables BI]
+  Aurora --> Cdc[CDC stream]
+  Cdc --> Search[OpenSearch]
+  Cdc --> Bus[EventBridge]
+  Secrets[Secrets Manager] --> App
+```
+
+**Patrones relacionados:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [batch-etl-glue-redshift](../batch-etl-glue-redshift/index.md), [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md).
+
 ## Ejercicio de practica
 
 Disena base para reservas con transacciones. Decide indices, RDS Proxy, secretos, backups, alarmas y que datos exportarias al lake.

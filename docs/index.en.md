@@ -17,10 +17,11 @@ The goal is not to memorize services. The goal is to learn how to ask:
 1. Open a pattern.
 2. Read the use case and the diagram.
 3. Answer the key questions before reading the recommendation.
-4. Compare pros and cons.
-5. Think about which metric would make you evolve to another architecture.
-6. Implement an MVP with IaC, ideally CDK or CloudFormation.
-7. Add alarms and a budget before considering the exercise complete.
+4. Review the applied example and compare its stage-by-stage decisions.
+5. Compare pros and cons.
+6. Think about which metric would make you evolve to another architecture.
+7. Implement an MVP with IaC, ideally CDK or CloudFormation.
+8. Add alarms and a budget before considering the exercise complete.
 
 ## Pattern catalog
 

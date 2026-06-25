@@ -79,6 +79,50 @@ Cost drivers:
 - Si aparecen consultas relacionales: mover esa parte a Aurora, no todo el sistema.
 - Si hay frontend con muchas agregaciones: evaluar AppSync GraphQL.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Clinica de reservas y pagos
+
+**Contexto:** Una clinica pequena necesita agenda online, cobro de copagos, carga de documentos y consulta de estado desde web y mobile sin operar servidores.
+
+**Preguntas y respuestas:**
+
+- **La reserva debe responder al instante?** Si. Crear cita, consultar disponibilidad y devolver confirmacion quedan sincronas; recordatorios, facturacion y analitica pueden salir por EventBridge.
+- **El modelo exige joins complejos desde el dia uno?** No. DynamoDB resuelve pacientes, citas y estados con `PK/SK`; S3 guarda documentos mediante Presigned URL para no pasar archivos por API Gateway.
+- **Que senal obliga a evolucionar?** Latencia p99 alta, consultas relacionales de facturacion o muchas tareas posteriores a la reserva.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** CloudFront para el frontend, API Gateway HTTP API, Cognito, Lambda por ruta, DynamoDB on-demand, S3 privado con KMS y CloudWatch Logs con retencion.
+- **Etapa media:** EventBridge publica `AppointmentBooked`, SQS desacopla recordatorios y pagos, Step Functions maneja reembolsos y X-Ray traza llamadas externas.
+- **Gran escala:** Cuentas separadas por ambiente, DynamoDB global tables si hay sedes multi-region, Aurora para facturacion relacional y S3 Tables para reportes historicos.
+
+**Migracion/evolucion:** Si ya existe un monolito Express, arrancar como lambdalith o ECS/Fargate, extraer rutas calientes a micro-Lambda y mover procesos de mas de 30 segundos a workers.
+
+```mermaid
+flowchart LR
+  subgraph I[Proyecto inicial]
+    Web[Web and mobile] --> Api[HTTP API]
+    Api --> Auth[Cognito]
+    Api --> Fn[Lambda routes]
+    Fn --> Db[DynamoDB]
+    Fn --> Files[S3 documents]
+  end
+  subgraph M[Etapa media]
+    Fn --> Bus[EventBridge]
+    Bus --> Queue[SQS reminders]
+    Queue --> Worker[Lambda worker]
+    Bus --> Flow[Step Functions refunds]
+  end
+  subgraph G[Gran escala]
+    Db --> Global[Global tables]
+    Bus --> Lake[S3 Tables analytics]
+    Fn --> Aurora[Aurora billing]
+  end
+```
+
+**Patrones relacionados:** [async-worker-sqs-lambda](../async-worker-sqs-lambda/index.md), [event-driven-domain-bus-eventbridge](../event-driven-domain-bus-eventbridge/index.md), [relational-sql-aurora-postgresql](../relational-sql-aurora-postgresql/index.md).
+
 ## Ejercicio de practica
 
 Disena una API de ordenes con endpoints `POST /orders`, `GET /orders/{id}` y `GET /customers/{id}/orders`. Define tabla DynamoDB, alarms, presupuesto y un evento `OrderCreated`.

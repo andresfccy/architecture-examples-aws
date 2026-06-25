@@ -79,6 +79,41 @@ Practices:
 - If NAT cost rises: create VPC endpoints for ECR, S3, logs, and Secrets Manager.
 - If multiple services appear: Service Connect.
 
+## Applied Examples
+
+### Example 1: B2B SaaS with web app and monolithic API
+
+**Context:** A contract-management SaaS has a Rails/Django app with small jobs, SQL data, and native dependencies that make a direct Lambda migration awkward.
+
+**Questions and answers:**
+
+- **Why containers from the start?** The runtime needs long processes, native libraries, and deployment control; ECS Fargate avoids operating EC2.
+- **What belongs in private subnets?** ECS tasks, Aurora, ElastiCache, and workers. Only the public ALB receives external traffic.
+- **How do we avoid slow or broken deploys?** Health check grace period, low deregistration delay, circuit breaker with rollback, and at least two tasks for zero downtime.
+
+**Architecture by stage:**
+
+- **Initial project:** Public ALB with ACM, ECS Fargate in private subnets, ECR, Aurora PostgreSQL, Secrets Manager, CloudWatch Logs, and WAF if internet-facing.
+- **Middle stage:** ECS workers or SQS + Lambda for asynchronous jobs, autoscaling by CPU/request count, blue/green deployment, and VPC endpoints to reduce NAT cost.
+- **Large-scale projection:** Split services by bounded context, use Service Connect, accounts per environment, read replicas or Aurora Serverless v2, and a data lake for analytics.
+
+**Migration/evolution:** If the app comes from Heroku or one VM, containerize without rewriting, move sessions to ElastiCache, files to S3, then extract workers and APIs by domain.
+
+```mermaid
+flowchart LR
+  User[Users] --> Cf[CloudFront optional]
+  Cf --> Alb[Public ALB]
+  Alb --> Web[ECS Fargate web]
+  Web --> Db[Aurora PostgreSQL]
+  Web --> Cache[ElastiCache sessions]
+  Web --> S3[S3 uploads]
+  Web --> Queue[SQS jobs]
+  Queue --> Worker[ECS or Lambda worker]
+  Web --> Logs[CloudWatch and X-Ray]
+```
+
+**Related patterns:** [async-worker-sqs-lambda](../async-worker-sqs-lambda/index.md), [relational-sql-aurora-postgresql](../relational-sql-aurora-postgresql/index.md), [redis-cache-aside-elasticache](../redis-cache-aside-elasticache/index.md).
+
 ## Practice exercise
 
 Take a Docker API and design ECR, task definition, ALB, security groups, Secrets Manager, alarms, and estimated monthly budget.

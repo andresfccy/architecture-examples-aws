@@ -78,6 +78,43 @@ Cost drivers:
 - If the domain grows: split schema by bounded contexts.
 - If only simple endpoints remain: consider REST to reduce complexity.
 
+## Applied Examples
+
+### Example 1: Marketplace with buyer, seller, and backoffice apps
+
+**Context:** A marketplace has three clients with different screens: buyer mobile app, seller portal, and backoffice. They share the same domain, but not the same fields.
+
+**Questions and answers:**
+
+- **Does each frontend need its own contract?** Yes. GraphQL reduces duplicate endpoints and lets each client request only inventory, orders, payments, or reputation fields needed by the view.
+- **What should resolve directly and what should use Lambda?** Simple reads use direct DynamoDB resolvers; pricing rules, permissions, and cross-source aggregation use Lambda.
+- **How do we prevent GraphQL from hiding cost?** Limit depth, measure resolver latency, cache repeated reads, and tag costs by client.
+
+**Architecture by stage:**
+
+- **Initial project:** AppSync, Cognito, DynamoDB for catalog/orders, Lambda for complex resolvers, and CloudWatch for resolver-level errors.
+- **Middle stage:** OpenSearch for search and facets, EventBridge for order events, SQS for settlement, and ElastiCache for sessions or temporary ranking.
+- **Large-scale projection:** Domain event buses, Aurora for financial settlements, a data lake on S3 Tables, and separate accounts for buyers, sellers, and platform workloads.
+
+**Migration/evolution:** If many REST endpoints are glued to the frontend today, introduce AppSync as a BFF over existing APIs, measure expensive resolvers, and migrate sources to DynamoDB/OpenSearch by domain.
+
+```mermaid
+flowchart LR
+  Buyer[Buyer app] --> Gql[AppSync GraphQL]
+  Seller[Seller portal] --> Gql
+  Ops[Backoffice] --> Gql
+  Gql --> Auth[Cognito]
+  Gql --> Ddb[DynamoDB]
+  Gql --> Fn[Lambda resolvers]
+  Fn --> Search[OpenSearch]
+  Fn --> Bus[EventBridge]
+  Bus --> Queue[SQS settlement]
+  Queue --> Aurora[Aurora finance]
+  Bus --> Lake[S3 Tables]
+```
+
+**Related patterns:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [event-driven-domain-bus-eventbridge](../event-driven-domain-bus-eventbridge/index.md), [relational-sql-aurora-postgresql](../relational-sql-aurora-postgresql/index.md).
+
 ## Practice exercise
 
 Model a GraphQL schema for `Customer`, `Order`, and `Product`. Decide which resolver goes directly to DynamoDB, which one uses Lambda, and which fields require authorization.

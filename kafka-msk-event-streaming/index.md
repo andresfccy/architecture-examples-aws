@@ -80,6 +80,40 @@ Guardrails:
 - Si consumer lag crece: revisar particiones, batch size y escalado.
 - Si hay contratos rotos: schema registry y compatibilidad hacia atras.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Banco que migra eventos core desde Kafka self-managed
+
+**Contexto:** Un banco ya usa Kafka para transacciones, antifraude y conciliacion. Quiere reducir operacion sin perder APIs Kafka ni conectores existentes.
+
+**Preguntas y respuestas:**
+
+- **Por que MSK y no Kinesis?** El ecosistema existente depende de Kafka API, consumer groups, schemas y conectores; MSK reduce operacion manteniendo compatibilidad.
+- **Express o Standard?** Express simplifica storage y throughput para nuevos clusters; Standard aplica si se requieren configuraciones o controles no disponibles en Express.
+- **Que metricas deciden capacidad?** Consumer lag, BytesInPerSec, Produce/Fetch throttle, CPU, under replicated partitions en Standard y configuracion de clientes como `linger.ms`.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** MSK en private subnets, IAM/SCRAM segun clientes, Secrets Manager para credenciales, productores migrados por dominio y CloudWatch alarms.
+- **Etapa media:** MSK Connect replica desde Kafka anterior, Flink procesa fraude en tiempo real, Schema Registry y S3 sink para historicos.
+- **Gran escala:** Multi-account producers/consumers, MirrorMaker/MSK Replicator entre regiones, tiered storage o lakehouse, y contratos de eventos versionados.
+
+**Migracion/evolucion:** Ejecutar dual-write temporal o replicacion, validar consumer lag y checksums, mover consumer groups por oleadas y cortar productores al final.
+
+```mermaid
+flowchart LR
+  Legacy[Self-managed Kafka] --> Connect[MSK Connect replication]
+  Producers[Bank producers] --> Msk[Amazon MSK]
+  Msk --> Fraud[Flink fraud]
+  Msk --> Ledger[Settlement consumers]
+  Msk --> S3Sink[S3 sink]
+  S3Sink --> Lake[S3 Tables]
+  Msk --> Metrics[CloudWatch lag alarms]
+  Secrets[Secrets Manager] --> Producers
+```
+
+**Patrones relacionados:** [streaming-kinesis-realtime-analytics](../streaming-kinesis-realtime-analytics/index.md), [batch-etl-glue-redshift](../batch-etl-glue-redshift/index.md), [multi-account-networking-vpc-endpoints](../multi-account-networking-vpc-endpoints/index.md).
+
 ## Ejercicio de practica
 
 Modela topics para `orders`, `payments` y `inventory`. Define particionamiento, retencion, consumer groups y alarmas de lag.

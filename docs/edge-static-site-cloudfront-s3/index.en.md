@@ -79,6 +79,41 @@ Guardrails:
 - If assets are heavy: optimization and cache policies.
 - If backend is multi-region: origins with failover.
 
+## Applied Examples
+
+### Example 1: Public university portal with admissions traffic spikes
+
+**Context:** A university publishes news, programs, static forms, and admissions content with strong spikes near application deadlines.
+
+**Questions and answers:**
+
+- **Why private S3 behind CloudFront?** S3 stores assets without public exposure, and CloudFront handles cache, TLS, WAF, and edge routing.
+- **Where does dynamic content go?** Forms and APIs go to API Gateway/Lambda or a separate backend; the static site must not contain secrets.
+- **How is cache-safe deployment handled?** Versioned files, controlled invalidations, OAC, cache headers, and rollback to the previous build.
+
+**Architecture by stage:**
+
+- **Initial project:** Private S3, CloudFront with OAC, ACM in us-east-1, Route 53 alias, basic WAF, and build pipeline.
+- **Middle stage:** Multi-origin for APIs, Lambda@Edge/CloudFront Functions for redirects, logging to S3, canaries, and branch previews.
+- **Large-scale projection:** Multi-region origin failover, separate accounts, advanced DDoS protection, cache hit rate observability, and a log data lake.
+
+**Migration/evolution:** If the site runs on a CMS/VM today, export the static frontend first, move media to S3, and keep the CMS as origin/API until content is decoupled.
+
+```mermaid
+flowchart LR
+  User[Visitors] --> R53[Route 53]
+  R53 --> Cf[CloudFront]
+  Cf --> Waf[WAF]
+  Cf --> S3[S3 private site]
+  Cf --> Api[API Gateway forms]
+  Api --> Fn[Lambda handlers]
+  Cf --> Logs[S3 access logs]
+  Logs --> Athena[Athena analysis]
+  Pipeline[CI build] --> S3
+```
+
+**Related patterns:** [rest-api-serverless-crud](../rest-api-serverless-crud/index.md), [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md).
+
 ## Practice exercise
 
 Design deployment of an SPA with private bucket, CloudFront, Route 53, ACM, WAF rate rule, and automatic invalidation.

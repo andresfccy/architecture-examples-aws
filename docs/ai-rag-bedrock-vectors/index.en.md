@@ -84,6 +84,41 @@ Guardrails:
 - If data is sensitive: ABAC and tenant separation.
 - If agents execute actions: IAM permissions per tool and audit.
 
+## Applied Examples
+
+### Example 1: Internal legal assistant for corporate documents
+
+**Context:** A legal department wants to query contracts, policies, and minutes with cited answers, access control, and low retrieval cost.
+
+**Questions and answers:**
+
+- **What is the trusted source?** S3 stores canonical documents, Bedrock Knowledge Bases retrieves chunks, and the LLM answers only with grounding.
+- **S3 Vectors or OpenSearch?** S3 Vectors for moderate QPS and low cost; OpenSearch when hybrid search, facets, or hundreds of sustained QPS are required.
+- **How is prompt injection mitigated?** Sanitize documents, separate instructions from context, use Guardrails, and filter by permission metadata.
+
+**Architecture by stage:**
+
+- **Initial project:** S3 documents, ingestion pipeline, Bedrock embeddings, S3 Vectors, Lambda API, and Cognito.
+- **Middle stage:** Semantic chunking for long documents, metadata filtering by department, reranking, semantic cache in ElastiCache, and audit of prompts/responses.
+- **Large-scale projection:** OpenSearch for hybrid search, separate data accounts, automated evaluations, cost attribution by team, and AgentCore/Agents if actions are enabled.
+
+**Migration/evolution:** If keyword search exists today, keep textual OpenSearch, add vectors by collection, and enable RAG first for reading, not actions.
+
+```mermaid
+flowchart LR
+  Docs[S3 legal documents] --> Ingest[Ingestion pipeline]
+  Ingest --> Embed[Bedrock embeddings]
+  Embed --> Vectors[S3 Vectors]
+  User[Authenticated user] --> Api[Lambda RAG API]
+  Api --> Vectors
+  Api --> Model[Bedrock LLM]
+  Api --> Guard[Guardrails]
+  Api --> Cache[Semantic cache]
+  Vectors --> Cite[Citations]
+```
+
+**Related patterns:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md), [redis-cache-aside-elasticache](../redis-cache-aside-elasticache/index.md).
+
 ## Practice exercise
 
 Design RAG for an internal wiki. Define ingestion, chunking, permission metadata, vector store, budget per user, and quality metrics.

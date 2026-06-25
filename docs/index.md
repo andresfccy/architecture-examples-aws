@@ -17,10 +17,11 @@ La idea no es memorizar servicios. La idea es aprender a preguntar:
 1. Abre un patron.
 2. Lee el caso de uso y el diagrama.
 3. Responde las preguntas clave antes de mirar la recomendacion.
-4. Compara pros y contras.
-5. Piensa que metrica te haria evolucionar a otra arquitectura.
-6. Implementa un MVP con IaC, idealmente CDK o CloudFormation.
-7. Agrega alarmas y presupuesto antes de declarar el ejercicio terminado.
+4. Revisa el ejemplo aplicado y compara sus decisiones por etapa.
+5. Compara pros y contras.
+6. Piensa que metrica te haria evolucionar a otra arquitectura.
+7. Implementa un MVP con IaC, idealmente CDK o CloudFormation.
+8. Agrega alarmas y presupuesto antes de declarar el ejercicio terminado.
 
 ## Catalogo de patrones
 

@@ -71,6 +71,41 @@ Minimo:
 - Si solo hay filtros simples: quizas DynamoDB GSI basta.
 - Si analytics domina: mandar datos a S3 Tables.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Busqueda de propiedades inmobiliarias
+
+**Contexto:** Un portal inmobiliario necesita busqueda por texto, filtros por ciudad/precio, facetas y ordenamiento por relevancia, mientras el inventario transaccional cambia todo el dia.
+
+**Preguntas y respuestas:**
+
+- **Por que no consultar DynamoDB o SQL directamente?** Full-text search, facetas y scoring son responsabilidad de OpenSearch; la base transaccional mantiene verdad operacional.
+- **Como llega el cambio al indice?** CDC desde DynamoDB Streams o DMS para Aurora, con Lambda/Firehose/OpenSearch Ingestion transformando documentos.
+- **Como manejar consistencia eventual?** Mostrar estado `indexing`, tolerar retraso medido y alarmar por lag o fallas de DLQ.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** CRUD guarda propiedades en DynamoDB/Aurora; un proceso indexa cambios a OpenSearch; API de busqueda consulta indice.
+- **Etapa media:** DLQ para documentos fallidos, reindex desde S3 snapshots, sinonimos por dominio y dashboards de ingest latency.
+- **Gran escala:** Separar clusters o colecciones por dominio, usar OpenSearch Serverless o dominios dedicados segun QPS, hybrid search con vectores y data lake historico.
+
+**Migracion/evolucion:** Si hoy hay `LIKE` en SQL, duplicar cambios a OpenSearch, comparar resultados, redirigir busquedas primero y mantener SQL como fuente de verdad.
+
+```mermaid
+flowchart LR
+  Admin[Inventory admin] --> Db[DynamoDB or Aurora]
+  Db --> Cdc[Streams or DMS CDC]
+  Cdc --> Transform[Lambda transform]
+  Transform --> Search[OpenSearch index]
+  SearchApi[Search API] --> Search
+  Transform --> Dlq[DLQ failed docs]
+  Db --> Snapshot[S3 snapshots]
+  Snapshot --> Reindex[Reindex job]
+  Reindex --> Search
+```
+
+**Patrones relacionados:** [nosql-dynamodb-single-table](../nosql-dynamodb-single-table/index.md), [relational-sql-aurora-postgresql](../relational-sql-aurora-postgresql/index.md), [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md).
+
 ## Ejercicio de practica
 
 Disena busqueda de productos. Define source of truth, mapeo de indice, pipeline CDC, DLQ y proceso de reindex completo.

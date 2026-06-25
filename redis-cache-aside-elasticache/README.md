@@ -76,6 +76,41 @@ Guardrails:
 - Si LLM cuesta mucho: semantic cache.
 - Si necesitas vector search: node-based Valkey 8.2+ o OpenSearch.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Leaderboard y cache de perfil para app fitness
+
+**Contexto:** Una app fitness muestra rankings en vivo, perfiles de usuario y planes personalizados. La base principal no debe absorber todas las lecturas repetidas.
+
+**Preguntas y respuestas:**
+
+- **Que datos se cachean?** Perfil publico, ranking por reto y resultados de consultas caras. El dato canonico queda en DynamoDB o Aurora.
+- **Que TTL usar?** Perfiles minutos, ranking segundos, feature flags mas largo; usar jitter para evitar cache stampede.
+- **Serverless o node-based?** Serverless para cache-aside comun; node-based Valkey si se requiere vector search o control fino de topologia.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** API en Lambda/ECS consulta ElastiCache con lazy connection, cae a DB en miss y escribe con TTL.
+- **Etapa media:** Invalidacion por eventos, locks para recomputo, metricas de cache hit rate, CPU, memoria y conexiones.
+- **Gran escala:** Sharding por tenant/reto, Global Datastore si aplica region secundaria, semantic cache para respuestas IA y backups/snapshots para datos derivados importantes.
+
+**Migracion/evolucion:** Medir primero endpoints lentos, introducir cache-aside en una lectura de alto volumen, despues mover sesiones/rate limiting y finalmente patrones de leaderboard.
+
+```mermaid
+flowchart LR
+  App[API app] --> Cache[ElastiCache Valkey]
+  Cache -->|miss| Db[DynamoDB or Aurora]
+  Db --> Cache
+  App --> Rank[Sorted sets leaderboard]
+  Events[EventBridge changes] --> Invalidate[Lambda invalidation]
+  Invalidate --> Cache
+  Cache --> Metrics[CloudWatch hit rate]
+  Ai[Bedrock app] --> Semantic[Semantic cache]
+  Semantic --> Cache
+```
+
+**Patrones relacionados:** [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md), [nosql-dynamodb-single-table](../nosql-dynamodb-single-table/index.md), [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md).
+
 ## Ejercicio de practica
 
 Agrega cache-aside a `GET /products/{id}`. Define key, TTL, invalidacion al actualizar producto y alarma por hit rate bajo.

@@ -80,6 +80,41 @@ Guardrails:
 - Si hay multi-region: pensar en estado global y routing.
 - Si hay backpressure: SQS entre eventos y push.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Tutor IA con chat en vivo y streaming de tokens
+
+**Contexto:** Una edtech quiere chat bidireccional, respuestas de LLM token a token, presencia en aula y notificaciones de ejercicios.
+
+**Preguntas y respuestas:**
+
+- **WebSocket o SSE?** WebSocket si hay presencia, mensajes cliente-servidor y notificaciones; Function URL streaming o SSE sirve para token streaming unidireccional.
+- **Donde guardar conexiones?** DynamoDB con TTL por `connectionId`, usuario y aula; ElastiCache si hay throughput muy alto de presencia.
+- **Como controlar costo y abuso de LLM?** Auth en `$connect`, quotas por usuario, maxTokens explicito, guardrails y budget/anomaly detection.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** API Gateway WebSocket, Lambda connect/message/disconnect, DynamoDB connections, Bedrock streaming y CloudWatch metrics.
+- **Etapa media:** Step Functions para flujos de tutor, SQS para evaluaciones asincronas, cache semantico y moderacion con Guardrails.
+- **Gran escala:** Sharding por aula/tenant, multi-region para latencia, OpenSearch/S3 para historial, y separacion de cuentas para IA y plataforma.
+
+**Migracion/evolucion:** Si el chat actual usa polling REST, introducir WebSocket solo para eventos live, conservar REST para historico y mover respuestas LLM a streaming despues.
+
+```mermaid
+flowchart LR
+  Student[Student client] <--> Ws[API Gateway WebSocket]
+  Ws --> Conn[Lambda connection handlers]
+  Conn --> Ddb[DynamoDB connections]
+  Ws --> Chat[Lambda chat handler]
+  Chat --> Bedrock[Bedrock ConverseStream]
+  Chat --> Guard[Guardrails]
+  Chat --> Queue[SQS async grading]
+  Queue --> Tutor[Step Functions tutor flow]
+  Chat --> History[S3 or OpenSearch history]
+```
+
+**Patrones relacionados:** [ai-rag-bedrock-vectors](../ai-rag-bedrock-vectors/index.md), [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Ejercicio de practica
 
 Disena chat de soporte con WebSocket y RAG streaming. Define auth, tabla de conexiones, limites por usuario, alarms y presupuesto de tokens.

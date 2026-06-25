@@ -79,6 +79,41 @@ Guardrails:
 - Si assets son pesados: optimizacion y cache policies.
 - Si multi-region backend: origins con failover.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Portal publico de universidad con alto trafico de admisiones
+
+**Contexto:** Una universidad publica noticias, programas, formularios estaticos y contenido de admisiones con picos fuertes cerca de cierres de inscripcion.
+
+**Preguntas y respuestas:**
+
+- **Por que S3 privado detras de CloudFront?** S3 guarda assets sin exposicion publica y CloudFront maneja cache, TLS, WAF y edge routing.
+- **Donde va el contenido dinamico?** Formularios y APIs van a API Gateway/Lambda o backend separado; el sitio estatico no debe incluir secretos.
+- **Como se despliega sin romper cache?** Archivos versionados, invalidaciones controladas, OAC, headers de cache y rollback por build previo.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** S3 privado, CloudFront con OAC, ACM en us-east-1, Route 53 alias, WAF basico y pipeline de build.
+- **Etapa media:** Multi-origin para APIs, Lambda@Edge/CloudFront Functions para redirects, logging a S3, canaries y previews por branch.
+- **Gran escala:** Multi-region origin failover, separacion por cuentas, proteccion DDoS avanzada, observabilidad de cache hit rate y data lake de logs.
+
+**Migracion/evolucion:** Si el sitio corre en un CMS/VM, exportar frontend estatico primero, mover media a S3 y dejar el CMS como origin/API hasta desacoplar contenido.
+
+```mermaid
+flowchart LR
+  User[Visitors] --> R53[Route 53]
+  R53 --> Cf[CloudFront]
+  Cf --> Waf[WAF]
+  Cf --> S3[S3 private site]
+  Cf --> Api[API Gateway forms]
+  Api --> Fn[Lambda handlers]
+  Cf --> Logs[S3 access logs]
+  Logs --> Athena[Athena analysis]
+  Pipeline[CI build] --> S3
+```
+
+**Patrones relacionados:** [rest-api-serverless-crud](../rest-api-serverless-crud/index.md), [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md).
+
 ## Ejercicio de practica
 
 Disena deployment de una SPA con bucket privado, CloudFront, Route 53, ACM, WAF rate rule e invalidacion automatica.

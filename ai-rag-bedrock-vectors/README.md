@@ -84,6 +84,41 @@ Guardrails:
 - Si hay datos sensibles: ABAC y separacion por tenant.
 - Si agentes ejecutan acciones: permisos IAM por herramienta y auditoria.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Asistente legal interno con documentos corporativos
+
+**Contexto:** Un area legal quiere consultar contratos, politicas y minutas con respuestas citadas, control de acceso y bajo costo de recuperacion.
+
+**Preguntas y respuestas:**
+
+- **Que fuente es confiable?** S3 guarda documentos canonicos, Bedrock Knowledge Bases recupera chunks y el LLM responde solo con grounding.
+- **S3 Vectors u OpenSearch?** S3 Vectors para QPS moderado y costo bajo; OpenSearch cuando se requiere hybrid search, facetas o cientos de QPS sostenidos.
+- **Como se mitiga prompt injection?** Sanitizar documentos, separar instrucciones del contexto, usar Guardrails y filtrar por metadatos de permisos.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** S3 documentos, pipeline de ingestion, Bedrock embeddings, S3 Vectors, Lambda API y Cognito.
+- **Etapa media:** Chunking semantico para documentos largos, metadata filtering por area, reranking, cache semantico en ElastiCache y auditoria de prompts/respuestas.
+- **Gran escala:** OpenSearch para busqueda hibrida, cuentas de datos separadas, evaluaciones automaticas, cost attribution por equipo y AgentCore/Agents si se habilitan acciones.
+
+**Migracion/evolucion:** Si hoy hay buscador keyword, mantener OpenSearch textual, agregar vectores por coleccion y activar RAG primero para lectura, no para acciones.
+
+```mermaid
+flowchart LR
+  Docs[S3 legal documents] --> Ingest[Ingestion pipeline]
+  Ingest --> Embed[Bedrock embeddings]
+  Embed --> Vectors[S3 Vectors]
+  User[Authenticated user] --> Api[Lambda RAG API]
+  Api --> Vectors
+  Api --> Model[Bedrock LLM]
+  Api --> Guard[Guardrails]
+  Api --> Cache[Semantic cache]
+  Vectors --> Cite[Citations]
+```
+
+**Patrones relacionados:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md), [redis-cache-aside-elasticache](../redis-cache-aside-elasticache/index.md).
+
 ## Ejercicio de practica
 
 Disena RAG para una wiki interna. Define ingestion, chunking, metadata de permisos, vector store, budget por usuario y metricas de calidad.

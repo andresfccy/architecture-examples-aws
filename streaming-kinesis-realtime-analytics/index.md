@@ -71,6 +71,41 @@ Minimo:
 - Si particiones calientes aparecen: redisenar partition key.
 - Si analitica historica domina: modelar S3 Tables/Iceberg.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Telemetria IoT para cadena de frio
+
+**Contexto:** Camiones refrigerados envian temperatura, ubicacion y bateria cada pocos segundos. Operaciones necesita alertas inmediatas y analitica historica.
+
+**Preguntas y respuestas:**
+
+- **Es mensajeria o streaming?** Streaming. Se requiere retencion, replay, orden por dispositivo y multiples consumidores independientes.
+- **Cuando usar Flink?** Cuando hay ventanas, deteccion de eventos complejos o joins con umbrales por ruta; Firehose basta para entrega simple a S3.
+- **Como se maneja backpressure?** Shards/on-demand, particion por `vehicleId`, alarmas de IteratorAge y DLQ/on-failure para consumidores Lambda.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** Dispositivos publican por API/IoT Core a Kinesis Data Streams; Lambda detecta umbrales y Firehose entrega Parquet a S3.
+- **Etapa media:** Managed Service for Apache Flink calcula ventanas, DynamoDB guarda estado operativo, SNS alerta incidentes y Athena consulta historicos.
+- **Gran escala:** Multi-region ingestion, enhanced fan-out para consumidores criticos, S3 Tables/Iceberg para lakehouse y OpenSearch para busqueda operacional.
+
+**Migracion/evolucion:** Si hoy se insertan lecturas directo en una base SQL, poner Kinesis delante, replicar a la base actual como consumidor y mover analitica a S3 sin parar productores.
+
+```mermaid
+flowchart LR
+  Devices[IoT devices] --> Stream[Kinesis Data Streams]
+  Stream --> Lambda[Lambda threshold alerts]
+  Stream --> Firehose[Firehose]
+  Firehose --> S3[S3 Parquet]
+  Stream --> Flink[Flink windows]
+  Flink --> Ddb[DynamoDB live state]
+  Flink --> Topic[SNS incidents]
+  S3 --> Athena[Athena]
+  S3 --> Tables[S3 Tables]
+```
+
+**Patrones relacionados:** [data-lake-s3-tables-athena](../data-lake-s3-tables-athena/index.md), [observability-cloudwatch-xray-adot](../observability-cloudwatch-xray-adot/index.md), [kafka-msk-event-streaming](../kafka-msk-event-streaming/index.md).
+
 ## Ejercicio de practica
 
 Disena ingestion de eventos `page_view`. Define partition key, retencion, consumidor realtime, entrega a S3 y alarma por lag.

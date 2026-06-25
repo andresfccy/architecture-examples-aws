@@ -76,6 +76,40 @@ Practical rules:
 - If workers are CPU-heavy: ECS/Fargate.
 - If backlog keeps growing: review downstream capacity and batch size.
 
+## Applied Examples
+
+### Example 1: Asynchronous PDF invoice generation
+
+**Context:** A payments platform must generate invoice PDFs after payment, notify the customer, and retry when the tax provider fails.
+
+**Questions and answers:**
+
+- **Should the user wait for the PDF?** No. The API confirms payment and enqueues `InvoiceRequested`; the PDF arrives by email or appears in the portal.
+- **What happens if the tax provider fails?** SQS handles retries, a DLQ stores poison messages, and processing is idempotent by `paymentId`.
+- **How is the database protected?** Reserved concurrency limits Lambda, and the Visibility timeout is at least 6x the worker timeout.
+
+**Architecture by stage:**
+
+- **Initial project:** API Gateway or ECS publishes to SQS Standard, a Lambda worker generates PDFs, S3 stores documents, and DynamoDB tracks status.
+- **Middle stage:** DLQ with controlled redrive, SNS for notifications, alarms on DLQ depth and p99 Duration, and Step Functions for flows with manual approval.
+- **Large-scale projection:** Partition by tenant or region, use ECS workers if the PDF library is heavy, add S3 lifecycle retention, and feed a data lake for tax audit.
+
+**Migration/evolution:** If the PDF is generated inside the request today, extract it behind a queue first while keeping the current endpoint and returning a `PROCESSING` state.
+
+```mermaid
+flowchart LR
+  Api[Payment API] --> Queue[SQS invoice queue]
+  Queue --> Fn[Lambda PDF worker]
+  Fn --> Fiscal[Tax provider]
+  Fn --> S3[S3 invoice PDFs]
+  Fn --> Ddb[DynamoDB status]
+  Fn --> Topic[SNS email event]
+  Queue --> Dlq[DLQ]
+  Dlq --> Redrive[Controlled redrive]
+```
+
+**Related patterns:** [pubsub-notifications-sns-sqs](../pubsub-notifications-sns-sqs/index.md), [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [file-processing-s3-stepfunctions](../file-processing-s3-stepfunctions/index.md).
+
 ## Practice exercise
 
 Design a PDF invoice generation flow. Define queue, DLQ, idempotency key, alarms, and redrive strategy.

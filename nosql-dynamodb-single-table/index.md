@@ -78,6 +78,41 @@ Cost decisions:
 - Si hay alto costo por lecturas repetidas: cache con ElastiCache o DAX.
 - Si hay multi-region activo: evaluar global tables.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Plataforma de tickets para eventos masivos
+
+**Contexto:** Una ticketera vende entradas con picos fuertes durante preventas, necesita baja latencia y consultas por usuario, evento y codigo de entrada.
+
+**Preguntas y respuestas:**
+
+- **Se conocen los patrones de acceso?** Si: buscar evento, listar tickets por usuario, validar QR por ticketId y consultar disponibilidad por seccion.
+- **Como evitar hot partitions?** Claves distribuidas por evento/seccion, counters con sharding y escrituras idempotentes por `purchaseId`.
+- **Que sale de la tabla principal?** Busqueda textual y reportes historicos no van por scans; usan Streams hacia OpenSearch y S3.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** Tabla single-table on-demand con `PK/SK`, GSI por usuario, TTL para reservas temporales y Lambda/API Gateway.
+- **Etapa media:** DynamoDB Streams publica proyecciones a OpenSearch, EventBridge emite `TicketSold`, SQS procesa emails y alarmas vigilan throttling/hot keys.
+- **Gran escala:** Capacidad provisionada con autoscaling para eventos conocidos, global tables para validacion regional y data lake para ventas historicas.
+
+**Migracion/evolucion:** Si existe una tabla relacional, identificar access patterns primero; migrar lecturas de alto QPS a DynamoDB y mantener Aurora para contabilidad.
+
+```mermaid
+flowchart LR
+  Api[Ticket API] --> Table[DynamoDB single table]
+  Table --> Gsi[GSI by user]
+  Table --> Stream[DynamoDB Streams]
+  Stream --> Search[OpenSearch tickets]
+  Stream --> Bus[EventBridge]
+  Bus --> EmailQ[SQS email]
+  EmailQ --> Email[Lambda email]
+  Stream --> Lake[S3 sales lake]
+  Validator[Gate validator] --> Table
+```
+
+**Patrones relacionados:** [search-opensearch-cdc](../search-opensearch-cdc/index.md), [event-driven-domain-bus-eventbridge](../event-driven-domain-bus-eventbridge/index.md), [redis-cache-aside-elasticache](../redis-cache-aside-elasticache/index.md).
+
 ## Ejercicio de practica
 
 Disena una tabla para ecommerce: customer, order, order items y shipment. Lista 8 patrones de acceso antes de definir claves.

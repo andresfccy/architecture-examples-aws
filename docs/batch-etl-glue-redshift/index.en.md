@@ -78,6 +78,41 @@ Guardrails:
 - If source schema changes: schema evolution and contracts.
 - If data arrives continuously: streaming to lake.
 
+## Applied Examples
+
+### Example 1: Nightly financial data mart
+
+**Context:** A company consolidates ERP, CRM, and external payment data every night for finance dashboards, cohorts, and monthly close.
+
+**Questions and answers:**
+
+- **Why batch and not streaming?** The business accepts daily data, sources are JDBC/SaaS, and scheduled Glue lowers operational cost.
+- **When does Redshift enter?** When BI needs large joins, concurrency, and dimensional models faster than Athena over S3.
+- **How is close validated?** Source/target counts, null checks, amount reconciliation, and alarms on job failures.
+
+**Architecture by stage:**
+
+- **Initial project:** Glue connections, PySpark jobs, S3 landing, Glue Data Catalog, Step Functions ordering, and Redshift Serverless or provisioned.
+- **Middle stage:** Incremental loads by watermark, Glue Data Quality, SNS notifications, secrets in Secrets Manager, and budgets by workgroup/cluster.
+- **Large-scale projection:** Historical data lake on S3 Tables, Redshift data sharing, multi-domain orchestration, and separate data accounts.
+
+**Migration/evolution:** If cron scripts run on a VM today, move landing to S3 first, encapsulate transformations in Glue, then replace cron with Step Functions.
+
+```mermaid
+flowchart LR
+  Erp[ERP JDBC] --> Glue[Glue ETL jobs]
+  Crm[CRM export] --> Glue
+  Pay[Payment files] --> Landing[S3 landing]
+  Landing --> Glue
+  Glue --> Lake[S3 curated]
+  Glue --> Redshift[Redshift data mart]
+  Step[Step Functions schedule] --> Glue
+  Redshift --> BI[Finance BI]
+  Glue --> Quality[Data Quality checks]
+```
+
+**Related patterns:** [data-lake-s3-tables-athena](../data-lake-s3-tables-athena/index.md), [workflow-orchestration-step-functions](../workflow-orchestration-step-functions/index.md), [security-iam-secrets-oidc](../security-iam-secrets-oidc/index.md).
+
 ## Practice exercise
 
 Design incremental load of `orders` from PostgreSQL to S3 Tables. Define watermark, validation, retry, and final publication.

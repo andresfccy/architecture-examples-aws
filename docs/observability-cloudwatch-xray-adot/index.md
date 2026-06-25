@@ -81,6 +81,41 @@ Practicas de alarmas:
 - Si hay incidentes recurrentes: runbooks y dashboards por servicio.
 - Si logs suben de costo: retencion, sampling y log levels.
 
+## Ejemplos aplicados
+
+### Ejemplo 1: Observabilidad de checkout multi-servicio
+
+**Contexto:** Un checkout usa API, pagos, inventario, cupones y notificaciones. El equipo ve errores, pero no sabe donde se rompe la experiencia.
+
+**Preguntas y respuestas:**
+
+- **Que SLI importa primero?** Tasa de ordenes exitosas, latencia p95/p99 del checkout y errores por dependencia.
+- **Que se instrumenta?** Structured logging con correlation id, metricas EMF por dominio, X-Ray/ADOT para trazas y CloudTrail para cambios de infraestructura.
+- **Como evitar ruido de alarmas?** Alarmas por sintomas de usuario, composite alarms para dependencias y dashboards por servicio con runbooks.
+
+**Diseno por etapa:**
+
+- **Proyecto inicial:** CloudWatch Logs con retencion, metricas de API/Lambda/ECS, alarmas basicas y dashboard de checkout.
+- **Etapa media:** ADOT collector, X-Ray traces, CloudWatch Logs Insights, metricas custom de negocio y SNS/PagerDuty para alarmas accionables.
+- **Gran escala:** Observabilidad cross-account, SLOs por dominio, canaries, CloudTrail Lake/Athena para auditoria y OpenSearch para logs de alta cardinalidad.
+
+**Migracion/evolucion:** Si solo hay logs de texto, pasar primero a JSON con correlation id, despues agregar metricas EMF y finalmente trazas distribuidas.
+
+```mermaid
+flowchart LR
+  Client[Checkout clients] --> Api[API Gateway or ALB]
+  Api --> Services[Lambda and ECS services]
+  Services --> Logs[CloudWatch Logs]
+  Services --> Metrics[EMF metrics]
+  Services --> Traces[X-Ray and ADOT]
+  CloudTrail[CloudTrail] --> Audit[S3 or CloudTrail Lake]
+  Metrics --> Alarms[Composite alarms]
+  Alarms --> Notify[SNS on-call]
+  Logs --> Insights[Logs Insights dashboards]
+```
+
+**Patrones relacionados:** [container-web-app-fargate-alb](../container-web-app-fargate-alb/index.md), [rest-api-serverless-crud](../rest-api-serverless-crud/index.md), [cost-guardrails-budgets-anomaly](../cost-guardrails-budgets-anomaly/index.md).
+
 ## Ejercicio de practica
 
 Define un dashboard para una API con Lambda, SQS y DynamoDB. Incluye 6 alarmas, un composite alarm y politica de retencion.
