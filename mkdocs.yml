@@ -12,7 +12,6 @@ theme:
   name: material
   language: es
   features:
-    - navigation.instant
     - navigation.sections
     - navigation.expand
     - navigation.top
@@ -37,7 +36,63 @@ theme:
 
 plugins:
   - search:
-      lang: es
+      lang:
+        - es
+        - en
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: es
+          name: Español
+          default: true
+          build: true
+          site_name: Architecture Examples AWS
+          site_description: Patrones de arquitectura AWS para estudiar decisiones, tradeoffs, costos, seguridad y operacion.
+          theme:
+            language: es
+        - locale: en
+          name: English
+          build: true
+          site_name: AWS Architecture Examples
+          site_description: AWS architecture patterns for studying service decisions, tradeoffs, security, observability, and cost guardrails.
+          theme:
+            language: en
+          nav:
+            - Home: index.md
+            - APIs and compute:
+                - Serverless REST API CRUD: rest-api-serverless-crud/index.md
+                - GraphQL BFF with AppSync: graphql-bff-appsync/index.md
+                - Internal gRPC on ECS: grpc-internal-ecs-services/index.md
+                - Web app on ECS Fargate: container-web-app-fargate-alb/index.md
+                - Realtime WebSocket and LLM Streaming: realtime-websocket-llm-streaming/index.md
+                - Edge static site with CloudFront and S3: edge-static-site-cloudfront-s3/index.md
+            - Messaging, events, and workflows:
+                - Async worker with SQS and Lambda: async-worker-sqs-lambda/index.md
+                - Pub/Sub with SNS and SQS: pubsub-notifications-sns-sqs/index.md
+                - Event-driven bus with EventBridge: event-driven-domain-bus-eventbridge/index.md
+                - Orchestration with Step Functions: workflow-orchestration-step-functions/index.md
+            - Streaming:
+                - Realtime analytics with Kinesis: streaming-kinesis-realtime-analytics/index.md
+                - Event streaming with MSK Kafka: kafka-msk-event-streaming/index.md
+            - Data, search, and cache:
+                - Aurora PostgreSQL SQL: relational-sql-aurora-postgresql/index.md
+                - DynamoDB single-table NoSQL: nosql-dynamodb-single-table/index.md
+                - ElastiCache cache-aside: redis-cache-aside-elasticache/index.md
+                - OpenSearch with CDC: search-opensearch-cdc/index.md
+                - S3 file processing: file-processing-s3-stepfunctions/index.md
+            - Analytics and data lake:
+                - Data lake with S3 Tables and Athena: data-lake-s3-tables-athena/index.md
+                - Batch ETL with Glue and Redshift: batch-etl-glue-redshift/index.md
+            - AI:
+                - RAG with Bedrock and vectors: ai-rag-bedrock-vectors/index.md
+            - Operations, security, and cost:
+                - Observability with CloudWatch, X-Ray, and ADOT: observability-cloudwatch-xray-adot/index.md
+                - Security with IAM, Secrets, and OIDC: security-iam-secrets-oidc/index.md
+                - Cost guardrails and budgets: cost-guardrails-budgets-anomaly/index.md
+                - Multi-account networking and endpoints: multi-account-networking-vpc-endpoints/index.md
 
 markdown_extensions:
   - admonition
